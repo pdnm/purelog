@@ -13,41 +13,44 @@ data State = Idle | Search Rel Tree Int
 showTruth :: Int -> IO ()
 showTruth nSols = if nSols == 0 then putStrLn "false" else putStrLn "true"
 
-printSolution :: Rel -> Table -> IO ()
-printSolution query table = (putStr . (++ " ") . show $ getSolution query table) >> hFlush stdout
+printSolution :: Solution -> IO ()
+printSolution sol = (putStr . (++ " ") . show $ sol) >> hFlush stdout
 
-findNext :: Program -> State -> IO ()
-findNext program state@(Search rel tree found) =
-  case search program tree 0 of
-    Just (table, Just tree')  -> printSolution rel table >> run program (Search rel tree' (found + 1))
-    Just (table, Nothing)     -> printSolution rel table >> putStrLn "." >> showTruth (found+1) >> run program Idle
-    Nothing                   -> putStrLn "." >> showTruth found >> run program Idle
+findNext :: Machine -> State -> IO ()
+findNext machine state@(Search input tree found) =
+  case search machine input tree 0 of
+    Just (sol, Just tree')  -> printSolution sol >> run machine (Search input tree' (found + 1))
+    Just (sol, Nothing)     -> printSolution sol >> putStrLn "." >> showTruth (found+1) >> run machine Idle
+    Nothing                   -> putStrLn "." >> showTruth found >> run machine Idle
 
-run :: Program -> State -> IO ()
-run program state@(Search rel tree found) = if found == 0 then findNext program state else do
+run :: Machine -> State -> IO ()
+run machine state@(Search input tree found) = if found == 0 then findNext machine state else do
   command <- getLine
   case command of
-    "."       -> showTruth found >> run program Idle
-    ";"       -> findNext program state
-    "#"       -> putStrLn ("Found " ++ show found ++ " solution(s).") >> run program state
+    "."       -> showTruth found >> run machine Idle
+    ";"       -> findNext machine state
+    "#"       -> putStrLn ("Found " ++ show found ++ " solution(s).") >> run machine state
     "$"       -> do
-                  let tables = (searchAll program tree)
-                  mapM_ (\ table -> printSolution rel table >> putStrLn ";") tables
-                  showTruth (found + length tables) >> run program Idle
+                  let sols = (searchAll machine input tree)
+                  mapM_ (\ sol -> printSolution sol >> putStrLn ";") sols
+                  showTruth (found + length sols) >> run machine Idle
     _         -> putStrLn ("Supported commands: terminate (.), find next (;)"
                           ++ ", count (#), find rest ($)")
-                  >> run program state
+                  >> run machine state
 
-run program Idle = do
+run machine@(prog, strat) Idle = do
   putStr "?- "
   hFlush stdout
   command <- getLine
-  if command == "quit"
-    then return ()
-    else
+  case command of
+    "quit"          -> return ()
+    "strategy(BFS)." -> run (prog, BFS) Idle
+    "strategy(DFS)." -> run (prog, DFS) Idle
+    _               ->
       case parseRel command of
-        Right rel -> run program (Search rel (initTree rel) 0)
-        Left err  -> print err >> run program Idle
+        Right input -> run machine (Search input (initTree input) 0)
+        Left err  -> print err >> run machine Idle
+
 
 main :: IO ()
 main = do
@@ -56,7 +59,7 @@ main = do
     [filename] -> do
       source <- readFile (head args)
       case parseProgram source of
-        Right program -> putStrLn "Loaded successfully" >> run program Idle
+        Right machine -> putStrLn "Loaded successfully" >> run (machine, DFS) Idle
         Left err -> print err
-    _ -> putStrLn "Usage: purelog <filename>"
+    _ -> putStrLn "Usage: puinputog <filename>"
   return ()

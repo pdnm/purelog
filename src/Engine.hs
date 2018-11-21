@@ -8,7 +8,12 @@ import qualified Data.List as L
 
 data Goal = Goal Table [Rel]
 data Tree = Tree Goal [Tree] Bool -- isExpanded
+data Strategy = DFS | BFS
+
+type Input = Rel
+type Machine = (Program, Strategy)
 type Table = M.Map String Term
+
 newtype Solution = Solution [(String, Term)]
 
 instance Show Solution where
@@ -20,36 +25,40 @@ instance Show Solution where
 initTree :: Rel -> Tree
 initTree rel = Tree (Goal M.empty [rel]) [] False
 
-search :: Program -> Tree -> Int -> Maybe (Table, Maybe Tree)
-search program (Tree (Goal table []) _ _) height = Just (table, Nothing)
+search :: Machine -> Input -> Tree -> Int -> Maybe (Solution, Maybe Tree)
+search _ input (Tree (Goal table []) _ _) height =
+  Just (getSolution input table, Nothing)
 
-search program (Tree (Goal table ((Rel "equal" [t1, t2]) : tl)) [] False) height =
+search machine input (Tree (Goal table ((Rel "equal" [t1, t2]) : tl)) [] False) height =
   case unify t1 t2 table of
-    Just table' -> search program (Tree (Goal table' tl) [] False) height
+    Just table' -> search machine input (Tree (Goal table' tl) [] False) height
     Nothing     -> Nothing
 
-search program (Tree goal [] False) height =
-  search program (Tree goal (expand program goal height) True) height
+search machine input (Tree goal [] False) height =
+  search machine input (Tree goal (expand machine goal height) True) height
 
-search program (Tree goal [] True) height = Nothing
+search machine _ (Tree goal [] True) height = Nothing
 
-search program (Tree goal (hd : tl) _) height =
-  case search program hd (height + 1) of
+search machine input (Tree goal (hd : tl) _) height =
+  case search machine input hd (height + 1) of
     Just (table, Just hd')  -> Just (table, Just (Tree goal (hd' : tl) True))
     Just (table, Nothing)   ->
       case tl of
         []  -> Just (table, Nothing)
         _   -> Just (table, Just (Tree goal tl True))
-    Nothing                 -> search program (Tree goal tl True) height
+    Nothing                 -> search machine input (Tree goal tl True) height
 
 
-expand :: Program -> Goal -> Int -> [Tree]
-expand (Program rules) (Goal table (hd : tl)) height = do
+expand :: Machine -> Goal -> Int -> [Tree]
+expand (Program rules, strat) (Goal table (hd : tl)) height = do
   rule <- filter (match hd) rules
   let (Rule pred body) = rename rule height
   disjunct <- body
+  let newGoal rels newRels = case strat of
+        DFS -> newRels ++ rels
+        BFS -> rels ++ newRels
   case unify (toFunctor pred) (toFunctor hd) table of
-    Just table' -> return $ Tree (Goal table' (disjunct ++ tl)) [] False
+    Just table' -> return $ Tree (Goal table' (newGoal tl disjunct)) [] False
     Nothing -> []
 
 
@@ -63,7 +72,7 @@ unify (Var v) term table =
   case table M.!? v of
     Just term' -> unify term' term table
     Nothing -> Just (M.insert v term table)
-unify term (var@(Var v)) table = unify var term table
+unify term var@(Var v) table = unify var term table
 unify _ _ _ = Nothing
 
 rename :: Rule -> Int -> Rule
@@ -83,11 +92,11 @@ match :: Rel -> Rule -> Bool
 match (Rel name terms) (Rule (Rel name' terms') _) =
   name == name' && length terms == length terms'
 
-searchAll :: Program -> Tree -> [Table]
-searchAll program tree =
-  case search program tree 0 of
-    Just (table, Just tree')  -> table : searchAll program tree'
-    Just (table, Nothing)     -> [table]
+searchAll :: Machine -> Input -> Tree -> [Solution]
+searchAll machine input tree =
+  case search machine input tree 0 of
+    Just (solution, Just tree')  -> solution : searchAll machine input tree'
+    Just (solution, Nothing)     -> [solution]
     Nothing                   -> []
 
 variables :: Rel -> [Term]
