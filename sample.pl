@@ -11,8 +11,8 @@ parent(X,Y) :- mother(X,Y).
 ancestor(X,Y) :- parent(X,Y).
 ancestor(X,Y) :- parent(X,Z),ancestor(Z,Y).
 
-append(nil, Y, Y).
-append(cons(X, Xs), Y, cons(X, Rs)) :- append(Xs, Y, Rs).
+append([], Y, Y).
+append([X|Xs], Y, [X|Rs]) :- append(Xs, Y, Rs).
 
-reverse(nil, nil).
-reverse(cons(H, T), R) :- reverse(T, R1), append(R1, cons(H, nil), R).
+reverse([], []).
+reverse([H|T], R) :- reverse(T, R1), append(R1, [H], R).

@@ -24,7 +24,7 @@ functorP = do
   return (name, terms)
 
 termP :: Parser Term
-termP = do
+termP = listP <|> do
     name <- tokenP (\t -> case t of
                         (TName s) -> Just (Atom s)
                         (TVar s) -> Just (Var s)
@@ -34,6 +34,17 @@ termP = do
                  . flip sepBy1 (symbol ",") $ termP) <|> return name
       _ -> return name
 
+listP :: Parser Term
+listP = do
+  symbol "["
+  heads <- sepBy termP (symbol ",")
+  let parseTail = (symbol "|" *> termP) <|> return (Atom ".")
+  res <- case heads of
+    []  -> return $ Atom "."
+    _   -> fmap (\tl -> foldr (\x y -> Func "." [x, y]) tl heads) parseTail
+  symbol "]"
+  return res
+  
 relP :: Parser Rel
 relP = fmap (uncurry Rel) functorP
 

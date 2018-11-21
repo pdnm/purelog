@@ -4,10 +4,18 @@ import AST
 import Control.Monad
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+import qualified Data.List as L
 
 data Goal = Goal Table [Rel]
 data Tree = Tree Goal [Tree] Bool -- isExpanded
 type Table = M.Map String Term
+newtype Solution = Solution [(String, Term)]
+
+instance Show Solution where
+  show (Solution vars) = L.intercalate ", " . map printVar $ vars
+    where
+      printVar (x, term) = x ++ " = " ++ show term
+
 
 initTree :: Rel -> Tree
 initTree rel = Tree (Goal M.empty [rel]) [] False
@@ -83,7 +91,7 @@ searchAll program tree =
     Nothing                   -> []
 
 variables :: Rel -> [Term]
-variables rel = S.toList . S.fromList . aux . toFunctor $ rel
+variables = S.toList . S.fromList . aux . toFunctor
   where
     aux v@(Var x) = [v]
     aux (Func _ terms) = terms >>= aux
@@ -97,3 +105,8 @@ resolve table (Var x) =
 
 resolve table (Func name terms) = Func name (map (resolve table) terms)
 resolve table a@(Atom _) = a
+
+getSolution :: Rel -> Table -> Solution
+getSolution rel table = Solution $ do
+  (Var x) <- variables rel
+  return (x, resolve table (Var x))

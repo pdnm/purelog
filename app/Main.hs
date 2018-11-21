@@ -14,9 +14,7 @@ showTruth :: Int -> IO ()
 showTruth nSols = if nSols == 0 then putStrLn "false" else putStrLn "true"
 
 printSolution :: Rel -> Table -> IO ()
-printSolution query table = (putStr . L.intercalate ", " . map printVar $ (variables query)) >> hFlush stdout
-  where
-    printVar v@(Var x) = x ++ " = " ++ show (resolve table v)
+printSolution query table = (putStr . (++ " ") . show $ getSolution query table) >> hFlush stdout
 
 findNext :: Program -> State -> IO ()
 findNext program state@(Search rel tree found) =
@@ -34,7 +32,7 @@ run program state@(Search rel tree found) = if found == 0 then findNext program 
     "#"       -> putStrLn ("Found " ++ show found ++ " solution(s).") >> run program state
     "$"       -> do
                   let tables = (searchAll program tree)
-                  _ <- traverse (\ table -> printSolution rel table >> putStrLn ";") tables
+                  mapM_ (\ table -> printSolution rel table >> putStrLn ";") tables
                   showTruth (found + length tables) >> run program Idle
     _         -> putStrLn ("Supported commands: terminate (.), find next (;)"
                           ++ ", count (#), find rest ($)")

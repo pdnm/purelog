@@ -23,6 +23,6 @@ Enter
 `stack exec purelog-exe sample.pl`
 * `equal(f(g(a,X),X), f(Y, b)).`
 * `ancestor(X, Y).`
-* `append(cons(a, cons(b, nil)), cons(c, cons(d, nil)), R).`
-* `append(cons(a, cons(b, nil)), R, cons(a, cons(X, cons(c, cons(d, nil))))).`
-* `reverse(cons(a, cons(b, cons(c, cons(d, nil)))), R).`
+* `append([a, b], [c, d], R).`
+* `append([A, b], [c, D], [a, B, C, d]).`
+* `reverse([a, b, c, d], R).`
