@@ -28,7 +28,10 @@ search program (Tree goal [] True) height = Nothing
 search program (Tree goal (hd : tl) _) height =
   case search program hd (height + 1) of
     Just (table, Just hd')  -> Just (table, Just (Tree goal (hd' : tl) True))
-    Just (table, Nothing)   -> Just (table, Just (Tree goal tl True))
+    Just (table, Nothing)   ->
+      case tl of
+        []  -> Just (table, Nothing)
+        _   -> Just (table, Just (Tree goal tl True))
     Nothing                 -> search program (Tree goal tl True) height
 
 
